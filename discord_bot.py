@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-#ChatGPT,GitHub Copilotを活用して制作されたプログラムです
-#systemdで自動起動するように設定しています
 import os
 import discord
 from dotenv import load_dotenv
@@ -8,6 +6,7 @@ import GPT as gpt
 import configparser
 import time
 import asyncio
+import requests
 
 def comma_separated_to_int_list(string):
     return [int(s) for s in string.split(',')]
@@ -58,9 +57,9 @@ class DiscordBot:
 
     def read_from_dotenv(self):
         #.envから読み取る
-        load_dotenv()
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        self.token = os.getenv('DISCORD_BOT_TOKEN')
+            load_dotenv()
+            self.api_key = os.getenv("OPENAI_API_KEY")
+            self.token = os.getenv('DISCORD_BOT_TOKEN')
 
     def first_prompt(self):
         return [{"role": "user", "content": self.start_prompt}]
@@ -103,7 +102,7 @@ class DiscordBot:
                     return False
             else:
                 return False
-        
+                
         return True
 
     def get_context(self, message):
@@ -112,7 +111,22 @@ class DiscordBot:
             return "thread", message.channel.id
         else:
             return "channel", message.channel.id
+    
+    def check_whether_voice_file(self, message):
+        if len(message.attachments) > 0  :
+            if message.attachments[0].content_type.startswith('audio'):
+                return True
 
+        return False
+
+    def speech_to_text(self, message):
+        url = message.attachments[0].url
+        urlData = requests.get(url).content
+        with open('./speech.ogg' ,mode='wb') as f: # wb でバイト型を書き込める
+            f.write(urlData)
+        text_obtained =  gpt.whisper_stt(os.path.abspath('./speech.ogg'))
+        os.remove('./speech.ogg')
+        return text_obtained
         
 
     def start(self):
@@ -137,7 +151,16 @@ class DiscordBot:
             if not self.check_whether_called(message,context_id):
                 return
 
+            
+
             #この時点で呼ばれているとみなす
+
+
+            #音声ファイルならここで下処理
+            if self.check_whether_voice_file(message):
+                received_message = self.speech_to_text(message)
+            else:
+                received_message = message.content
 
             #もし履歴がない場合はstart_promptを追加する
             if context_id not in self.status_by_channel:
@@ -147,12 +170,12 @@ class DiscordBot:
 
             #もし(上記の処理も含めて)履歴がある場合はpromptを更新する
             if len(self.status_by_channel[context_id]["prompt"]) > 0:
-                self.status_by_channel[context_id]["prompt"].append({"role": "user", "content": message.content})
+                self.status_by_channel[context_id]["prompt"].append({"role": "user", "content": received_message})
 
                 
             #終了するかどうか確認する
             #メッセージがgoodbye_wordsの中の1つで始まる場合は終了する
-            if message.content.lower().startswith(self.goodbye_words):
+            if received_message.lower().startswith(self.goodbye_words):
                 await message.channel.send(self.goodbye_message)
                 self.status_by_channel[context_id]["prompt"] = self.first_prompt()
                 self.status_by_channel[context_id]["isCalled"] = False

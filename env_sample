@@ -1,4 +1,0 @@
-#Once you add your API key below, make sure to not share it with anyone! The API key should remain private.
-#Rename it to .env and place in the same folder of program.
-OPENAI_API_KEY=XXX
-DISCORD_BOT_TOKEN=XXX

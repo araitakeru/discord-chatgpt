@@ -1,4 +1,6 @@
 import openai
+import whisper
+# ffmpegが必要！
 import os
 from dotenv import load_dotenv
 
@@ -20,6 +22,17 @@ def generate_response(prompt, model, temperature=0.2, max_tokens=1200):
 
 def add_user_input_and_generate_response(prompt, user_input):
     prompt += [{"role": "user", "content": user_input}]
-    response = generate_response(prompt,"gpt-3.5-turbo")
+    response = generate_response(prompt,"gpt-4")
     prompt += [{"role": "assistant", "content": response}]
     return prompt, response
+
+def whisper_stt(abspath):
+    model = whisper.load_model('base')
+    audio = whisper.load_audio(abspath)
+    text_result = model.transcribe(audio, verbose=True, language= "ja")
+    return text_result['text']
+
+
+if __name__ == '__main__':
+    print(os.listdir())
+    print(whisper_stt(r"C:\Users\card\Documents\Umi_Neko\discord-gpt-1\speech.ogg"))
